@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const step = boardDim / (gridSize - 1);
         
         const playerIds = Object.keys(gameState.players);
-        const p1Id = playerIds[0];
+        const p1Id = playerIds[0]; // Player 1 is always the first key
         const myUserIdStr = String(tg.initDataUnsafe.user.id);
         const currentTurnIdStr = String(gameState.current_turn_id);
 
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. Draw Boxes
         const cols = gridSize - 1;
         for (let i = 0; i < boxes.length; i++) {
-            const ownerId = String(boxes[i]);
+            const ownerId = String(boxes[i]); // Ensure comparison is string-to-string
             if (ownerId !== '0') {
                 const r = Math.floor(i / cols);
                 const c = i % cols;
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
             line.classList.add('line');
             line.dataset.index = index;
             
-            const ownerId = String(lines[index]);
+            const ownerId = String(lines[index]); // Ensure comparison is string-to-string
             if (ownerId !== '0') {
                 line.style.stroke = ownerId === p1Id ? P1_COLOR : P2_COLOR;
                 line.style.strokeWidth = '5';
