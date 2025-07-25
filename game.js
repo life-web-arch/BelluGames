@@ -116,13 +116,12 @@ document.addEventListener('DOMContentLoaded', () => {
             gameBoardSVG.appendChild(line);
         }
 
-                // 4. Update UI Text
+        // 4. Update UI Text
         if (playerIds.length === 2) {
             const p2Id = playerIds[1];
             p1ScoreDisplay.textContent = `${gameState.players[p1Id].name}: ${scores[p1Id]}`;
             p2ScoreDisplay.textContent = `${gameState.players[p2Id].name}: ${scores[p2Id]}`;
             
-            // --- START OF MODIFICATION ---
             // This robust check prevents the script from crashing if the turn ID is invalid.
             if (gameState.players[currentTurnIdStr]) {
                 const turnPlayerName = gameState.players[currentTurnIdStr].name;
@@ -138,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusMessage.textContent = "Error: Invalid turn data received.";
                 console.error("Could not find player for turn ID:", currentTurnIdStr, "in players object:", gameState.players);
             }
-            // --- END OF MODIFICATION ---
         }
         
         // 5. Add Event Listeners
@@ -191,3 +189,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error("Failed to parse game state from URL hash:", e);
                 statusMessage.textContent = "Error: Invalid game data.";
             }
+        } else {
+            // If there's no hash in the URL, the game state is missing.
+            // This can happen if the page is opened directly.
+            statusMessage.textContent = "No game data found. Please launch the game using the button in your Telegram chat.";
+            console.error("URL hash is missing. Cannot initialize game.");
+        }
+    }
