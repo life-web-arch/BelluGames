@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderBoard() {
         if (!gameState || !gameState.game_data) {
             statusMessage.textContent = "Error: Could not load game data.";
+            console.error("Game state or game_data is missing:", gameState);
             return;
         }
 
@@ -46,7 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const step = boardDim / (gridSize - 1);
         const playerIds = Object.keys(gameState.players);
         const p1Id = playerIds[0];
-        const p2Id = playerIds[1];
 
         // 1. Draw Dots
         for (let r = 0; r < gridSize; r++) {
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 dot.setAttribute('cx', padding + c * step);
                 dot.setAttribute('cy', padding + r * step);
-                dot.setAttribute('r', 1.5); // Slightly smaller dots for elegance
+                dot.setAttribute('r', 1.5);
                 dot.setAttribute('fill', tg.themeParams.hint_color || '#999999');
                 gameBoardSVG.appendChild(dot);
             }
@@ -81,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 3. Draw Lines
         let lineIndex = 0;
-        const numHorizontal = (gridSize - 1) * gridSize;
         // Horizontal lines
         for (let r = 0; r < gridSize; r++) {
             for (let c = 0; c < gridSize - 1; c++) {
@@ -107,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const ownerId = lines[index];
             if (ownerId !== 0) {
                 line.style.stroke = ownerId == p1Id ? P1_COLOR : P2_COLOR;
-                line.style.strokeWidth = '5'; // Make claimed lines thicker
+                line.style.strokeWidth = '5';
             } else {
                 line.classList.add('available');
             }
@@ -115,18 +114,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 4. Update UI Text
-        p1ScoreDisplay.textContent = `${gameState.players[p1Id].name}: ${scores[p1Id]}`;
-        p2ScoreDisplay.textContent = `${gameState.players[p2Id].name}: ${scores[p2Id]}`;
-        
-        const turnPlayerName = gameState.players[gameState.current_turn_id].name;
-        if (gameState.current_turn_id == tg.initDataUnsafe.user.id) {
-            statusMessage.textContent = "Your Turn!";
-            statusMessage.style.color = tg.themeParams.link_color || '#8774e1';
-        } else {
-            statusMessage.textContent = `Waiting for ${turnPlayerName}...`;
-            statusMessage.style.color = tg.themeParams.text_color || '#ffffff';
+        if (playerIds.length === 2) {
+            const p2Id = playerIds[1];
+            p1ScoreDisplay.textContent = `${gameState.players[p1Id].name}: ${scores[p1Id]}`;
+            p2ScoreDisplay.textContent = `${gameState.players[p2Id].name}: ${scores[p2Id]}`;
+            
+            const turnPlayerName = gameState.players[gameState.current_turn_id].name;
+            if (String(gameState.current_turn_id) === String(tg.initDataUnsafe.user.id)) {
+                statusMessage.textContent = "Your Turn!";
+                statusMessage.style.color = tg.themeParams.link_color || '#8774e1';
+            } else {
+                statusMessage.textContent = `Waiting for ${turnPlayerName}...`;
+                statusMessage.style.color = tg.themeParams.text_color || '#ffffff';
+            }
         }
-
+        
         // 5. Add Event Listeners
         document.querySelectorAll('.line.available').forEach(line => {
             line.addEventListener('click', handleLineClick);
@@ -134,14 +136,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleLineClick(event) {
-        if (gameState.current_turn_id != tg.initDataUnsafe.user.id) {
+        if (String(gameState.current_turn_id) !== String(tg.initDataUnsafe.user.id)) {
             tg.showAlert("It's not your turn!");
             return;
         }
         const lineIndex = parseInt(event.target.dataset.index);
         statusMessage.textContent = "Sending move...";
         sendMoveToBot(lineIndex);
-        // Disable board until next update
+        
         document.querySelectorAll('.line.available').forEach(line => {
             line.removeEventListener('click', handleLineClick);
             line.style.cursor = 'default';
@@ -153,8 +155,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const hash = window.location.hash.substring(1);
         if (hash) {
             try {
-                const decodedJson = atob(hash); // Base64 decode
+                // --- THIS BLOCK IS THE FIX ---
+                // 1. Replace URL-safe characters back to standard Base64 characters
+                let base64 = hash.replace(/-/g, '+').replace(/_/g, '/');
+                // 2. Add padding if it was stripped by the encoder
+                const padding = '='.repeat((4 - base64.length % 4) % 4);
+                // 3. Decode the corrected Base64 string
+                const decodedJson = atob(base64 + padding);
+                // 4. Parse the resulting JSON string
                 gameState = JSON.parse(decodedJson);
+                // --- END OF FIX ---
+
                 renderBoard();
             } catch (e) {
                 console.error("Failed to parse game state from URL hash:", e);
