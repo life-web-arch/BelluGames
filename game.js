@@ -1,7 +1,9 @@
-document.addEventListener('DOMContentLoaded', () => {
+// Use Telegram's ready() function as the entry point for the entire application.
+// This is the most robust method and prevents race conditions.
+window.Telegram.WebApp.ready(() => {
+    
     // --- INITIALIZE TELEGRAM WEB APP ---
     const tg = window.Telegram.WebApp;
-    tg.ready();
     tg.expand();
 
     // --- DOM ELEMENTS ---
@@ -122,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
             p1ScoreDisplay.textContent = `${gameState.players[p1Id].name}: ${scores[p1Id]}`;
             p2ScoreDisplay.textContent = `${gameState.players[p2Id].name}: ${scores[p2Id]}`;
             
-            // This robust check prevents the script from crashing if the turn ID is invalid.
             if (gameState.players[currentTurnIdStr]) {
                 const turnPlayerName = gameState.players[currentTurnIdStr].name;
                 if (currentTurnIdStr === myUserIdStr) {
@@ -133,7 +134,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusMessage.style.color = tg.themeParams.text_color || '#ffffff';
                 }
             } else {
-                // If the turn ID is not a valid player, display an error instead of crashing.
                 statusMessage.textContent = "Error: Invalid turn data received.";
                 console.error("Could not find player for turn ID:", currentTurnIdStr, "in players object:", gameState.players);
             }
@@ -160,52 +160,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-    // --- MAIN INITIALIZATION LOGIC (DEBUGGING VERSION) ---
+    // --- MAIN INITIALIZATION LOGIC ---
     function initialize() {
-        // Change the status message element to allow for HTML content
-        const statusMessage = document.getElementById('status-message');
-
         const hash = window.location.hash.substring(1);
         if (hash) {
-            let base64 = '';
-            let correctedBase64 = '';
-            let decodedJson = '';
             try {
-                // The decoding process remains the same
-                base64 = hash.replace(/-/g, '+').replace(/_/g, '/');
+                let base64 = hash.replace(/-/g, '+').replace(/_/g, '/');
                 const padding = '='.repeat((4 - base64.length % 4) % 4);
-                correctedBase64 = base64 + padding;
-                decodedJson = atob(correctedBase64);
+                const correctedBase64 = base64 + padding;
+                const decodedJson = atob(correctedBase64);
                 gameState = JSON.parse(decodedJson);
-                renderBoard(); // This will only be reached on success
+                renderBoard();
             } catch (e) {
-                // --- THIS IS THE NEW DEBUGGING BLOCK ---
-                // If any part of the 'try' block fails, this code will run.
-                // It prints a detailed report directly onto the game screen.
-                console.error("CRITICAL DECODING FAILURE:", e);
-                statusMessage.innerHTML = `
-                    <div style="text-align: left; padding: 10px; font-family: monospace; font-size: 10px; word-wrap: break-word; background-color: #333; border-radius: 5px;">
-                        <p style="color: #ff6b6b;"><strong>DEBUGGING REPORT: DATA PARSING FAILED</strong></p>
-                        <hr>
-                        <p><strong>Error Message:</strong> <span style="color: #ffb8b8;">${e.message}</span></p>
-                        <hr>
-                        <p><strong><u>DATA PIPELINE:</u></strong></p>
-                        <p><strong>1. Raw Hash from URL:</strong></p>
-                        <p style="color: #f9ca24;">${hash}</p>
-                        <p><strong>2. After URL-Safe Replace:</strong></p>
-                        <p style="color: #f9ca24;">${base64}</p>
-                        <p><strong>3. After Padding Added (Input to 'atob'):</strong></p>
-                        <p style="color: #f9ca24;">${correctedBase64}</p>
-                        <p><strong>4. After 'atob' (Input to 'JSON.parse'):</strong></p>
-                        <p style="color: #f9ca24;">${decodedJson ? new TextEncoder().encode(decodedJson).slice(0, 300) + '...' : 'Error in atob'}</p>
-                        <hr>
-                        <p style="color: #ff6b6b;"><strong>ACTION: Please screenshot this entire report and provide it.</strong></p>
-                    </div>
-                `;
+                console.error("Failed to parse game state from URL hash:", e);
+                statusMessage.textContent = "Error: Invalid game data. Please relaunch from Telegram.";
             }
         } else {
-            statusMessage.textContent = "DEBUGGING: No game data (#) was found in the URL.";
+            statusMessage.textContent = "No game data found. Please launch from Telegram.";
             console.error("URL hash is missing. Cannot initialize game.");
         }
     }
+
+    // Call initialize now that we are inside tg.ready()
+    initialize();
+
+});
