@@ -160,7 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- MAIN INITIALIZATION LOGIC ---
+
+        // --- MAIN INITIALIZATION LOGIC ---
     function initialize() {
         const hash = window.location.hash.substring(1);
         if (hash) {
@@ -169,13 +170,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // standard Base64 equivalents ('+' and '/').
                 let base64 = hash.replace(/-/g, '+').replace(/_/g, '/');
                 
-                // Step 2: The URL-safe encoding often removes padding characters ('=').
-                // This calculates how much padding is needed to make the string length
-                // a multiple of 4, which is required by the atob() function.
+                // Step 2: Since Python now strips padding, this step is ESSENTIAL.
+                // It calculates and adds back the required padding ('=' characters) to make
+                // the string length a multiple of 4, which atob() requires.
                 const padding = '='.repeat((4 - base64.length % 4) % 4);
                 const correctedBase64 = base64 + padding;
 
-                // Step 3: Now that the string is in standard Base64 format, decode it.
+                // Step 3: Now that the string is in standard, padded Base64 format, decode it.
                 const decodedJson = atob(correctedBase64);
                 
                 // Step 4: Parse the resulting JSON string into our game state object.
@@ -191,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             // If there's no hash in the URL, the game state is missing.
-            // This can happen if the page is opened directly.
             statusMessage.textContent = "No game data found. Please launch the game using the button in your Telegram chat.";
             console.error("URL hash is missing. Cannot initialize game.");
         }
