@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderBoard() {
-        if (!gameState || !gameState.game_data) {
+        if (!gameState || !gameState.game_data || !gameState.players) {
             statusMessage.textContent = "Error: Could not load game data.";
             console.error("Game state or game_data is missing:", gameState);
             return;
@@ -45,8 +45,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const padding = 10;
         const boardDim = 100 - 2 * padding;
         const step = boardDim / (gridSize - 1);
+        
+        // --- START OF JAVASCRIPT CORRECTION ---
         const playerIds = Object.keys(gameState.players);
         const p1Id = playerIds[0];
+        const myUserIdStr = String(tg.initDataUnsafe.user.id);
+        const currentTurnIdStr = String(gameState.current_turn_id);
+        // --- END OF JAVASCRIPT CORRECTION ---
 
         // 1. Draw Dots
         for (let r = 0; r < gridSize; r++) {
@@ -63,8 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. Draw Boxes
         const cols = gridSize - 1;
         for (let i = 0; i < boxes.length; i++) {
-            const ownerId = boxes[i];
-            if (ownerId !== 0) {
+            const ownerId = String(boxes[i]); // Ensure comparison is string-to-string
+            if (ownerId !== '0') {
                 const r = Math.floor(i / cols);
                 const c = i % cols;
                 const box = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -72,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 box.setAttribute('y', padding + r * step);
                 box.setAttribute('width', step);
                 box.setAttribute('height', step);
-                box.setAttribute('fill', ownerId == p1Id ? P1_COLOR : P2_COLOR);
+                box.setAttribute('fill', ownerId === p1Id ? P1_COLOR : P2_COLOR);
                 box.setAttribute('fill-opacity', 0.4);
                 box.classList.add('box');
                 gameBoardSVG.appendChild(box);
@@ -103,9 +108,9 @@ document.addEventListener('DOMContentLoaded', () => {
             line.classList.add('line');
             line.dataset.index = index;
             
-            const ownerId = lines[index];
-            if (ownerId !== 0) {
-                line.style.stroke = ownerId == p1Id ? P1_COLOR : P2_COLOR;
+            const ownerId = String(lines[index]); // Ensure comparison is string-to-string
+            if (ownerId !== '0') {
+                line.style.stroke = ownerId === p1Id ? P1_COLOR : P2_COLOR;
                 line.style.strokeWidth = '5';
             } else {
                 line.classList.add('available');
@@ -119,8 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
             p1ScoreDisplay.textContent = `${gameState.players[p1Id].name}: ${scores[p1Id]}`;
             p2ScoreDisplay.textContent = `${gameState.players[p2Id].name}: ${scores[p2Id]}`;
             
-            const turnPlayerName = gameState.players[gameState.current_turn_id].name;
-            if (String(gameState.current_turn_id) === String(tg.initDataUnsafe.user.id)) {
+            const turnPlayerName = gameState.players[currentTurnIdStr].name;
+            if (currentTurnIdStr === myUserIdStr) {
                 statusMessage.textContent = "Your Turn!";
                 statusMessage.style.color = tg.themeParams.link_color || '#8774e1';
             } else {
@@ -155,17 +160,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const hash = window.location.hash.substring(1);
         if (hash) {
             try {
-                // --- THIS BLOCK IS THE FIX ---
-                // 1. Replace URL-safe characters back to standard Base64 characters
                 let base64 = hash.replace(/-/g, '+').replace(/_/g, '/');
-                // 2. Add padding if it was stripped by the encoder
                 const padding = '='.repeat((4 - base64.length % 4) % 4);
-                // 3. Decode the corrected Base64 string
                 const decodedJson = atob(base64 + padding);
-                // 4. Parse the resulting JSON string
                 gameState = JSON.parse(decodedJson);
-                // --- END OF FIX ---
-
                 renderBoard();
             } catch (e) {
                 console.error("Failed to parse game state from URL hash:", e);
