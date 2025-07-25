@@ -158,25 +158,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const hash = window.location.hash.substring(1);
         if (hash) {
             try {
-                // --- THIS BLOCK IS THE FIX ---
-                // 1. Replace URL-safe characters back to standard Base64 characters
+                // Step 1: Replace the URL-safe characters ('-' and '_') back to their
+                // standard Base64 equivalents ('+' and '/').
                 let base64 = hash.replace(/-/g, '+').replace(/_/g, '/');
-                // 2. Add padding if it was stripped by the encoder
+                
+                // Step 2: The URL-safe encoding often removes padding characters ('=').
+                // This calculates how much padding is needed to make the string length
+                // a multiple of 4, which is required by the atob() function.
                 const padding = '='.repeat((4 - base64.length % 4) % 4);
-                // 3. Decode the corrected Base64 string
-                const decodedJson = atob(base64 + padding);
-                // 4. Parse the resulting JSON string
+                const correctedBase64 = base64 + padding;
+
+                // Step 3: Now that the string is in standard Base64 format, decode it.
+                const decodedJson = atob(correctedBase64);
+                
+                // Step 4: Parse the resulting JSON string into our game state object.
                 gameState = JSON.parse(decodedJson);
-                // --- END OF FIX ---
+                
+                // Step 5: With the game state successfully loaded, render the board.
                 renderBoard();
+
             } catch (e) {
+                // If any step fails, log the detailed error and show the user a generic message.
                 console.error("Failed to parse game state from URL hash:", e);
                 statusMessage.textContent = "Error: Invalid game data.";
             }
-        } else {
-            statusMessage.textContent = "No active game found. Please start a game from the bot.";
-        }
-    }
-
-    initialize();
-});
