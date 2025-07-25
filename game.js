@@ -116,20 +116,29 @@ document.addEventListener('DOMContentLoaded', () => {
             gameBoardSVG.appendChild(line);
         }
 
-        // 4. Update UI Text
+                // 4. Update UI Text
         if (playerIds.length === 2) {
             const p2Id = playerIds[1];
             p1ScoreDisplay.textContent = `${gameState.players[p1Id].name}: ${scores[p1Id]}`;
             p2ScoreDisplay.textContent = `${gameState.players[p2Id].name}: ${scores[p2Id]}`;
             
-            const turnPlayerName = gameState.players[currentTurnIdStr].name;
-            if (currentTurnIdStr === myUserIdStr) {
-                statusMessage.textContent = "Your Turn!";
-                statusMessage.style.color = tg.themeParams.link_color || '#8774e1';
+            // --- START OF MODIFICATION ---
+            // This robust check prevents the script from crashing if the turn ID is invalid.
+            if (gameState.players[currentTurnIdStr]) {
+                const turnPlayerName = gameState.players[currentTurnIdStr].name;
+                if (currentTurnIdStr === myUserIdStr) {
+                    statusMessage.textContent = "Your Turn!";
+                    statusMessage.style.color = tg.themeParams.link_color || '#8774e1';
+                } else {
+                    statusMessage.textContent = `Waiting for ${turnPlayerName}...`;
+                    statusMessage.style.color = tg.themeParams.text_color || '#ffffff';
+                }
             } else {
-                statusMessage.textContent = `Waiting for ${turnPlayerName}...`;
-                statusMessage.style.color = tg.themeParams.text_color || '#ffffff';
+                // If the turn ID is not a valid player, display an error instead of crashing.
+                statusMessage.textContent = "Error: Invalid turn data received.";
+                console.error("Could not find player for turn ID:", currentTurnIdStr, "in players object:", gameState.players);
             }
+            // --- END OF MODIFICATION ---
         }
         
         // 5. Add Event Listeners
