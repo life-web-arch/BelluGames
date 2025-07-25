@@ -161,38 +161,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-        // --- MAIN INITIALIZATION LOGIC ---
+    // --- MAIN INITIALIZATION LOGIC (DEBUGGING VERSION) ---
     function initialize() {
+        // Change the status message element to allow for HTML content
+        const statusMessage = document.getElementById('status-message');
+
         const hash = window.location.hash.substring(1);
         if (hash) {
+            let base64 = '';
+            let correctedBase64 = '';
+            let decodedJson = '';
             try {
-                // Step 1: Replace the URL-safe characters ('-' and '_') back to their
-                // standard Base64 equivalents ('+' and '/').
-                let base64 = hash.replace(/-/g, '+').replace(/_/g, '/');
-                
-                // Step 2: Since Python now strips padding, this step is ESSENTIAL.
-                // It calculates and adds back the required padding ('=' characters) to make
-                // the string length a multiple of 4, which atob() requires.
+                // The decoding process remains the same
+                base64 = hash.replace(/-/g, '+').replace(/_/g, '/');
                 const padding = '='.repeat((4 - base64.length % 4) % 4);
-                const correctedBase64 = base64 + padding;
-
-                // Step 3: Now that the string is in standard, padded Base64 format, decode it.
-                const decodedJson = atob(correctedBase64);
-                
-                // Step 4: Parse the resulting JSON string into our game state object.
+                correctedBase64 = base64 + padding;
+                decodedJson = atob(correctedBase64);
                 gameState = JSON.parse(decodedJson);
-                
-                // Step 5: With the game state successfully loaded, render the board.
-                renderBoard();
-
+                renderBoard(); // This will only be reached on success
             } catch (e) {
-                // If any step fails, log the detailed error and show the user a generic message.
-                console.error("Failed to parse game state from URL hash:", e);
-                statusMessage.textContent = "Error: Invalid game data.";
+                // --- THIS IS THE NEW DEBUGGING BLOCK ---
+                // If any part of the 'try' block fails, this code will run.
+                // It prints a detailed report directly onto the game screen.
+                console.error("CRITICAL DECODING FAILURE:", e);
+                statusMessage.innerHTML = `
+                    <div style="text-align: left; padding: 10px; font-family: monospace; font-size: 10px; word-wrap: break-word; background-color: #333; border-radius: 5px;">
+                        <p style="color: #ff6b6b;"><strong>DEBUGGING REPORT: DATA PARSING FAILED</strong></p>
+                        <hr>
+                        <p><strong>Error Message:</strong> <span style="color: #ffb8b8;">${e.message}</span></p>
+                        <hr>
+                        <p><strong><u>DATA PIPELINE:</u></strong></p>
+                        <p><strong>1. Raw Hash from URL:</strong></p>
+                        <p style="color: #f9ca24;">${hash}</p>
+                        <p><strong>2. After URL-Safe Replace:</strong></p>
+                        <p style="color: #f9ca24;">${base64}</p>
+                        <p><strong>3. After Padding Added (Input to 'atob'):</strong></p>
+                        <p style="color: #f9ca24;">${correctedBase64}</p>
+                        <p><strong>4. After 'atob' (Input to 'JSON.parse'):</strong></p>
+                        <p style="color: #f9ca24;">${decodedJson ? new TextEncoder().encode(decodedJson).slice(0, 300) + '...' : 'Error in atob'}</p>
+                        <hr>
+                        <p style="color: #ff6b6b;"><strong>ACTION: Please screenshot this entire report and provide it.</strong></p>
+                    </div>
+                `;
             }
         } else {
-            // If there's no hash in the URL, the game state is missing.
-            statusMessage.textContent = "No game data found. Please launch the game using the button in your Telegram chat.";
+            statusMessage.textContent = "DEBUGGING: No game data (#) was found in the URL.";
             console.error("URL hash is missing. Cannot initialize game.");
         }
     }
