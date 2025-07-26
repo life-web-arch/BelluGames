@@ -4,83 +4,453 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Dots and Boxes</title>
-    <!-- The mandatory Telegram Web App script -->
+    <!-- The mandatory script for Telegram Mini Apps -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
     <style>
+        /* CSS Variables for easy theming and integration with Telegram */
         :root {
-            /* These will be set by JS to match the user's Telegram theme */
-            --tg-theme-bg-color: #212121;
-            --tg-theme-text-color: #ffffff;
-            --tg-theme-button-color: #8774e1;
-            --tg-theme-button-text-color: #ffffff;
-            --player1-color: #00aaff;
-            --player2-color: #ffaa00;
+            --tg-bg-color: var(--tg-theme-bg-color, #1a1a1a);
+            --tg-text-color: var(--tg-theme-text-color, #ffffff);
+            --tg-hint-color: var(--tg-theme-hint-color, #8e8e93);
+            --tg-button-color: var(--tg-theme-button-color, #007aff);
+            --tg-button-text-color: var(--tg-theme-button-text-color, #ffffff);
+
+            --dot-color: #555;
+            --grid-line-color: #333;
+            --hover-line-color: rgba(255, 255, 255, 0.3);
+            --player1-color: #0088cc; /* Blue */
+            --player2-color: #f44336; /* Red */
+            --player1-box-color: rgba(0, 136, 204, 0.5);
+            --player2-box-color: rgba(244, 67, 54, 0.5);
         }
-        body, html {
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-bg-color);
+            color: var(--tg-text-color);
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-user-select: none; /* Disable text selection */
+            user-select: none;
         }
-        .container {
-            width: 95vw;
-            max-width: 500px;
-            margin: auto;
-            text-align: center;
-        }
-        #game-info {
+
+        #game-container {
             display: flex;
-            justify-content: space-around;
-            width: 100%;
-            margin-bottom: 15px;
-            font-size: 1.2em;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
         }
-        #p1-score { color: var(--player1-color); font-weight: bold; }
-        #p2-score { color: var(--player2-color); font-weight: bold; }
-        #status-message {
-            margin: 15px 0;
-            font-size: 1.1em;
+        
+        #status-bar {
+            width: 100%;
+            height: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .player-score {
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 1.5em;
             font-weight: bold;
-            min-height: 2em;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
-        #game-board-svg {
-            width: 100%;
-            height: auto;
-            aspect-ratio: 1 / 1;
-            touch-action: none;
+        
+        .player-score.player1 {
+            background-color: var(--player1-color);
+            color: white;
         }
-        .line {
-            stroke: #888;
-            stroke-width: 4;
-            stroke-linecap: round;
-            transition: all 0.2s ease-in-out;
+        
+        .player-score.player2 {
+            background-color: var(--player2-color);
+            color: white;
         }
-        .line.available:hover {
-            stroke: #fff;
+        
+        .player-score.active {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px currentColor;
+        }
+        
+        #turn-info {
+            font-size: 1.2em;
+            font-weight: 500;
+            text-align: center;
+            margin-top: 10px;
+            color: var(--tg-hint-color);
+            height: 30px; /* Reserve space to prevent layout shift */
+        }
+        
+        #game-canvas {
+            background-color: transparent;
+            touch-action: none; /* Prevents default touch behaviors like scrolling */
             cursor: pointer;
         }
-        .box {
-            transition: fill 0.3s ease-in-out;
+
+        #loading-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .spinner {
+            border: 4px solid var(--tg-hint-color);
+            border-top: 4px solid var(--tg-button-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div id="game-info">
-            <div id="p1-score">Player 1: 0</div>
-            <div id="p2-score">Player 2: 0</div>
+
+    <div id="loading-overlay"><div class="spinner"></div></div>
+    
+    <div id="game-container">
+        <div id="status-bar">
+            <div id="p1-score" class="player-score player1">P1: 0</div>
+            <div id="p2-score" class="player-score player2">P2: 0</div>
         </div>
-        <div id="status-message">Loading game...</div>
-        <svg id="game-board-svg" viewBox="0 0 100 100"></svg>
+        <canvas id="game-canvas"></canvas>
+        <div id="turn-info">Loading game...</div>
     </div>
-    <script src="game.js?v=1.0"></script>
+
+    <script>
+        // ===================================================================
+        // 1. INITIALIZATION & SETUP
+        // ===================================================================
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand(); // Make the app full screen
+
+        // IMPORTANT: Replace this with your actual tunnel URL from Pinggy/Serveo
+        const API_BASE_URL = "https://your-unique-tunnel-url.example.com"; 
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomCode = urlParams.get('room_code');
+        const userId = parseInt(urlParams.get('user_id'), 10);
+        
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const statusBar = document.getElementById('status-bar');
+        const turnInfo = document.getElementById('turn-info');
+        const p1ScoreEl = document.getElementById('p1-score');
+        const p2ScoreEl = document.getElementById('p2-score');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        // Game State Object (will be populated by the server)
+        let gameState = {};
+
+        // Game Drawing Constants
+        const GRID_SIZE = 5; // e.g., 5x5 grid of boxes
+        const DOT_RADIUS = 5;
+        const LINE_WIDTH = 6;
+        const CLICK_THRESHOLD = 15;
+        let CELL_SIZE;
+
+        // ===================================================================
+        // 2. CANVAS DRAWING LOGIC
+        // ===================================================================
+
+        function resizeCanvas() {
+            const size = Math.min(window.innerWidth - 40, window.innerHeight - statusBar.offsetHeight - turnInfo.offsetHeight - 50);
+            canvas.width = size;
+            canvas.height = size;
+            CELL_SIZE = canvas.width / (GRID_SIZE + 1);
+            redrawCanvas();
+        }
+
+        function drawGrid() {
+            ctx.fillStyle = getCssVar('--dot-color');
+            for (let r = 0; r <= GRID_SIZE; r++) {
+                for (let c = 0; c <= GRID_SIZE; c++) {
+                    ctx.beginPath();
+                    ctx.arc(c * CELL_SIZE + CELL_SIZE/2, r * CELL_SIZE + CELL_SIZE/2, DOT_RADIUS, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function drawLines() {
+            if (!gameState.lines) return;
+
+            const player1Color = getCssVar('--player1-color');
+            const player2Color = getCssVar('--player2-color');
+
+            // Horizontal lines
+            for (let r = 0; r <= GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const lineOwner = gameState.lines.h?.[r]?.[c];
+                    if (lineOwner) {
+                        ctx.strokeStyle = lineOwner === gameState.player1.id ? player1Color : player2Color;
+                        ctx.lineWidth = LINE_WIDTH;
+                        ctx.lineCap = 'round';
+                        ctx.beginPath();
+                        ctx.moveTo(c * CELL_SIZE + CELL_SIZE/2, r * CELL_SIZE + CELL_SIZE/2);
+                        ctx.lineTo((c + 1) * CELL_SIZE + CELL_SIZE/2, r * CELL_SIZE + CELL_SIZE/2);
+                        ctx.stroke();
+                    }
+                }
+            }
+            // Vertical lines
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c <= GRID_SIZE; c++) {
+                    const lineOwner = gameState.lines.v?.[r]?.[c];
+                    if (lineOwner) {
+                        ctx.strokeStyle = lineOwner === gameState.player1.id ? player1Color : player2Color;
+                        ctx.lineWidth = LINE_WIDTH;
+                        ctx.lineCap = 'round';
+                        ctx.beginPath();
+                        ctx.moveTo(c * CELL_SIZE + CELL_SIZE/2, r * CELL_SIZE + CELL_SIZE/2);
+                        ctx.lineTo(c * CELL_SIZE + CELL_SIZE/2, (r + 1) * CELL_SIZE + CELL_SIZE/2);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        
+        function drawBoxes() {
+            if (!gameState.boxes) return;
+
+            const p1BoxColor = getCssVar('--player1-box-color');
+            const p2BoxColor = getCssVar('--player2-box-color');
+            
+            ctx.font = `bold ${CELL_SIZE * 0.6}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const boxOwner = gameState.boxes?.[r]?.[c];
+                    if (boxOwner) {
+                        const isP1 = boxOwner === gameState.player1.id;
+                        ctx.fillStyle = isP1 ? p1BoxColor : p2BoxColor;
+                        ctx.fillRect(
+                            c * CELL_SIZE + CELL_SIZE/2, 
+                            r * CELL_SIZE + CELL_SIZE/2, 
+                            CELL_SIZE, 
+                            CELL_SIZE
+                        );
+                        
+                        // Draw player symbol in the box
+                        ctx.fillStyle = isP1 ? getCssVar('--player1-color') : getCssVar('--player2-color');
+                        const symbol = isP1 ? gameState.player1.symbol : gameState.player2.symbol;
+                        ctx.fillText(
+                            symbol,
+                            c * CELL_SIZE + CELL_SIZE,
+                            r * CELL_SIZE + CELL_SIZE
+                        );
+                    }
+                }
+            }
+        }
+        
+        function drawHoverLine(line) {
+            if (!line || gameState.status !== 'in_progress' || gameState.current_turn !== userId) return;
+
+            ctx.strokeStyle = getCssVar('--hover-line-color');
+            ctx.lineWidth = LINE_WIDTH;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            if (line.type === 'h') {
+                ctx.moveTo(line.col * CELL_SIZE + CELL_SIZE/2, line.row * CELL_SIZE + CELL_SIZE/2);
+                ctx.lineTo((line.col + 1) * CELL_SIZE + CELL_SIZE/2, line.row * CELL_SIZE + CELL_SIZE/2);
+            } else {
+                ctx.moveTo(line.col * CELL_SIZE + CELL_SIZE/2, line.row * CELL_SIZE + CELL_SIZE/2);
+                ctx.lineTo(line.col * CELL_SIZE + CELL_SIZE/2, (line.row + 1) * CELL_SIZE + CELL_SIZE/2);
+            }
+            ctx.stroke();
+        }
+
+        function redrawCanvas(hoverLine = null) {
+            if (!gameState.lines) return; // Don't draw if state isn't loaded
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBoxes();
+            drawLines();
+            drawGrid();
+            drawHoverLine(hoverLine);
+        }
+
+        // ===================================================================
+        // 3. GAME STATE & SERVER COMMUNICATION
+        // ===================================================================
+
+        function updateUI() {
+            if (!gameState || !gameState.player1) {
+                loadingOverlay.style.display = 'flex';
+                return;
+            }
+            loadingOverlay.style.display = 'none';
+
+            // Update scores and names
+            p1ScoreEl.textContent = `${gameState.player1.symbol}: ${gameState.scores[gameState.player1.id]}`;
+            p2ScoreEl.textContent = `${gameState.player2.symbol}: ${gameState.scores[gameState.player2.id]}`;
+            
+            p1ScoreEl.classList.toggle('active', gameState.current_turn === gameState.player1.id);
+            p2ScoreEl.classList.toggle('active', gameState.current_turn === gameState.player2.id);
+
+            // Update status message
+            if (gameState.status === 'finished') {
+                if (gameState.winner_id === null) {
+                    turnInfo.textContent = "It's a draw!";
+                } else {
+                    const winnerName = gameState.winner_id === userId ? "You win!" : "You lose!";
+                    turnInfo.textContent = `Game Over! ${winnerName}`;
+                }
+                 tg.close(); // Close the mini app on game over
+            } else if (gameState.current_turn === userId) {
+                turnInfo.textContent = "Your Turn";
+            } else {
+                const opponentName = userId === gameState.player1.id ? gameState.player2.name : gameState.player1.name;
+                turnInfo.textContent = `Waiting for ${opponentName}...`;
+            }
+        }
+        
+        async function fetchGameState() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/get_state?room_code=${roomCode}`);
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                const newState = await response.json();
+
+                // Simple check to see if state has changed to avoid unnecessary redraws
+                if (JSON.stringify(gameState) !== JSON.stringify(newState)) {
+                    gameState = newState;
+                    updateUI();
+                    redrawCanvas();
+                }
+            } catch (error) {
+                console.error("Failed to fetch game state:", error);
+                turnInfo.textContent = "Connection Error!";
+            }
+        }
+
+        async function makeMove(line) {
+            // Optimistic update for instant feedback
+            if (!gameState.lines.h[line.row]) gameState.lines.h[line.row] = {};
+            if (!gameState.lines.v[line.row]) gameState.lines.v[line.row] = {};
+            if(line.type === 'h') gameState.lines.h[line.row][line.col] = userId;
+            else gameState.lines.v[line.row][line.col] = userId;
+            redrawCanvas();
+
+            try {
+                await fetch(`${API_BASE_URL}/make_move`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        room_code: roomCode,
+                        user_id: userId,
+                        move: line
+                    })
+                });
+                // After sending, the polling will fetch the authoritative state
+            } catch (error) {
+                console.error("Failed to send move:", error);
+                turnInfo.textContent = "Failed to send move!";
+                 // Revert optimistic update on failure
+                 fetchGameState();
+            }
+        }
+
+        // ===================================================================
+        // 4. USER INPUT & EVENT LISTENERS
+        // ===================================================================
+        
+        function getLineFromClick(x, y) {
+            const col = Math.floor(x / CELL_SIZE);
+            const row = Math.floor(y / CELL_SIZE);
+            
+            const offsetX = x % CELL_SIZE;
+            const offsetY = y % CELL_SIZE;
+
+            const isNearHorizontal = offsetY < CLICK_THRESHOLD || offsetY > CELL_SIZE - CLICK_THRESHOLD;
+            const isNearVertical = offsetX < CLICK_THRESHOLD || offsetX > CELL_SIZE - CLICK_THRESHOLD;
+
+            if (isNearHorizontal && !isNearVertical) {
+                const targetRow = Math.round(y / CELL_SIZE);
+                if (col < GRID_SIZE && targetRow <= GRID_SIZE) {
+                    if (!gameState.lines.h?.[targetRow]?.[col]) {
+                         return { type: 'h', row: targetRow, col: col };
+                    }
+                }
+            } else if (isNearVertical && !isNearHorizontal) {
+                const targetCol = Math.round(x / CELL_SIZE);
+                if (row < GRID_SIZE && targetCol <= GRID_SIZE) {
+                    if (!gameState.lines.v?.[row]?.[targetCol]) {
+                        return { type: 'v', row: row, col: targetCol };
+                    }
+                }
+            }
+            return null;
+        }
+
+        canvas.addEventListener('click', (e) => {
+            if (gameState.status !== 'in_progress' || gameState.current_turn !== userId) {
+                tg.HapticFeedback.notificationOccurred('error');
+                return;
+            }
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const line = getLineFromClick(x, y);
+            
+            if (line) {
+                tg.HapticFeedback.impactOccurred('light');
+                makeMove(line);
+            }
+        });
+        
+        let lastHoverLine = null;
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const hoverLine = getLineFromClick(x, y);
+
+            if(JSON.stringify(hoverLine) !== JSON.stringify(lastHoverLine)) {
+                 lastHoverLine = hoverLine;
+                 redrawCanvas(hoverLine);
+            }
+        });
+        canvas.addEventListener('mouseleave', () => {
+             lastHoverLine = null;
+             redrawCanvas(null);
+        });
+
+
+        // ===================================================================
+        // 5. UTILITY & STARTUP
+        // ===================================================================
+
+        function getCssVar(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+
+        // Start the game loop
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Initial call
+        fetchGameState(); // Initial fetch
+        setInterval(fetchGameState, 2000); // Poll every 2 seconds
+
+    </script>
 </body>
 </html>
