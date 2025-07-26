@@ -143,10 +143,13 @@
         // IMPORTANT: Replace this with your actual tunnel URL from Pinggy/Serveo
         const API_BASE_URL = "https://spotty-llamas-rhyme.loca.lt"; 
 
+        // --- THIS IS THE CORRECTED, CLEANED UP BLOCK ---
         const urlParams = new URLSearchParams(window.location.search);
         const roomCode = urlParams.get('room_code');
         const userId = parseInt(urlParams.get('user_id'), 10);
-        
+        const token = urlParams.get('token');
+        // --- END OF CORRECTION ---
+
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
         const statusBar = document.getElementById('status-bar');
@@ -325,13 +328,14 @@
         
         async function fetchGameState() {
             try {
-                const response = await fetch(`${API_BASE_URL}/get_state?room_code=${roomCode}`);
+                // --- THIS IS THE CORRECTED, FULLY AUTHENTICATED REQUEST ---
+                const response = await fetch(`${API_BASE_URL}/get_state?room_code=${roomCode}&user_id=${userId}&token=${token}`);
+
                 if (!response.ok) {
                     throw new Error(`Server error: ${response.status}`);
                 }
                 const newState = await response.json();
 
-                // Simple check to see if state has changed to avoid unnecessary redraws
                 if (JSON.stringify(gameState) !== JSON.stringify(newState)) {
                     gameState = newState;
                     updateUI();
@@ -358,6 +362,7 @@
                     body: JSON.stringify({
                         room_code: roomCode,
                         user_id: userId,
+                        token: token, // Also include token when making a move
                         move: line
                     })
                 });
