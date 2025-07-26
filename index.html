@@ -375,7 +375,7 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
 
         function updateUI() {
             if (!gameState || !gameState.player1) {
-                loadingOverlay.style.display = 'flex';
+                loadingOverlay.style.display = 'none';
                 return;
             }
             loadingOverlay.style.display = 'none';
@@ -405,22 +405,18 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
                 turnInfo.textContent = `Waiting for ${opponentName}...`;
             }
         }
-        
         async function fetchGameState() {
             try {
-                // Try to get the game state as normal.
                 const response = await fetch(`${API_BASE_URL}/get_state?room_code=${roomCode}&user_id=${userId}&token=${token}`);
                 if (!response.ok) {
-                    // If the server responds with an error (like 404), it's still a failure.
                     throw new Error(`Server error: ${response.status}`);
                 }
                 const newState = await response.json();
 
-                // If we ever succeed, clear any previous error message.
+                // If we successfully connect, clear any previous error message.
                 if (turnInfo.innerHTML.includes("Connection Issue")) {
                      turnInfo.style.height = '30px';
                      turnInfo.style.textAlign = 'center';
-                     // The updateUI function will set the correct text.
                 }
 
                 if (JSON.stringify(gameState) !== JSON.stringify(newState)) {
@@ -430,56 +426,41 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
                 }
             } catch (error) {
                 console.error("Game state fetch failed:", error);
+                
+                // --- FINAL, SIMPLIFIED ERROR HANDLING ---
+                // If the fetch fails, we already have the URL and Password from the initial setup.
+                // We no longer need to make a second API call.
 
-                // --- START OF THE FIX ---
-                // Hide the loading overlay so the error message below is interactive.
-                loadingOverlay.style.display = 'none';
-                // --- END OF THE FIX ---
-
-                // The primary connection failed. We assume it's because the tunnel
-                // needs to be "unlocked" by entering the password.
-                // We will now try to get the password from the bot and display instructions.
-                try {
-                    const infoResponse = await fetch(`${API_BASE_URL}/get_tunnel_info`);
-                    if (!infoResponse.ok) throw new Error("Info endpoint failed");
-                    const tunnelInfo = await infoResponse.json();
-
-                    if (tunnelInfo.url && tunnelInfo.password) {
-                        // SUCCESS: We got the URL and Password from the bot.
-                        turnInfo.style.height = 'auto';
-                        turnInfo.style.textAlign = 'left';
-                        turnInfo.innerHTML = `
-                            <div style="padding: 10px; border: 1px solid #ffcc00; border-radius: 8px; background-color: rgba(255, 204, 0, 0.1);">
-                                <strong style="color: #ffcc00;">Connection Issue: Action Required</strong>
-                                <p style="font-size: 0.9em; margin: 8px 0;">The game server is waiting for you to unlock it. This is a one-time step needed when the server restarts.</p>
-                                <p style="font-size: 1em; font-weight: bold; margin: 8px 0;">Please follow these steps exactly:</p>
-                                <ol style="font-size: 0.9em; padding-left: 20px; margin: 0;">
-                                    <li>Click the button below to open the server page.</li>
-                                    <li>Copy the password provided below.</li>
-                                    <li>Paste the password onto that new webpage and submit.</li>
-                                    <li>Return to this chat; the game will load automatically.</li>
-                                </ol>
-                                <button
-                                    onclick="window.open('${tunnelInfo.url}', '_blank')"
-                                    style="background-color: var(--tg-button-color); color: var(--tg-button-text-color); border: none; padding: 10px 15px; border-radius: 8px; font-size: 1em; width: 100%; cursor: pointer; margin-top: 15px;"
-                                >
-                                    1. Open Server Page
-                                </button>
-                                <div class="password-container">
-                                    <p style="font-size:0.9em; margin:0 0 8px 0;">2. Your one-time password is:</p>
-                                    <div class="password-display">${tunnelInfo.password}</div>
-                                    <button class="copy-btn" onclick="copyToClipboard('${tunnelInfo.password}', this)">Click to Copy Password</button>
-                                </div>
+                if (dynamicTunnelUrl && tunnelPassword) {
+                    // Display the helpful message using the data we already have.
+                    turnInfo.style.height = 'auto';
+                    turnInfo.style.textAlign = 'left';
+                    turnInfo.innerHTML = `
+                        <div style="padding: 10px; border: 1px solid #ffcc00; border-radius: 8px; background-color: rgba(255, 204, 0, 0.1);">
+                            <strong style="color: #ffcc00;">Connection Issue: Action Required</strong>
+                            <p style="font-size: 0.9em; margin: 8px 0;">The game server is waiting for you to unlock it. This is a one-time step needed when the server restarts.</p>
+                            <p style="font-size: 1em; font-weight: bold; margin: 8px 0;">Please follow these steps exactly:</p>
+                            <ol style="font-size: 0.9em; padding-left: 20px; margin: 0;">
+                                <li>Click the button below to open the server page.</li>
+                                <li>Copy the password provided below.</li>
+                                <li>Paste the password onto that new webpage and submit.</li>
+                                <li>Return to this chat; the game will load automatically.</li>
+                            </ol>
+                            <button
+                                onclick="window.open('${dynamicTunnelUrl}', '_blank')"
+                                style="background-color: var(--tg-button-color); color: var(--tg-button-text-color); border: none; padding: 10px 15px; border-radius: 8px; font-size: 1em; width: 100%; cursor: pointer; margin-top: 15px;"
+                            >
+                                1. Open Server Page
+                            </button>
+                            <div class="password-container">
+                                <p style="font-size:0.9em; margin:0 0 8px 0;">2. Your one-time password is:</p>
+                                <div class="password-display">${tunnelPassword}</div>
+                                <button class="copy-btn" onclick="copyToClipboard('${tunnelPassword}', this)">Click to Copy Password</button>
                             </div>
-                        `;
-                    } else {
-                        // This case handles if the bot is reachable but doesn't have the info yet.
-                        throw new Error("Tunnel info from bot is incomplete.");
-                    }
-                } catch (infoError) {
-                    // This is the FINAL fallback if the bot's API itself is unreachable.
-                    // This is the message you are currently seeing.
-                    console.error("Could not fetch tunnel info:", infoError);
+                        </div>
+                    `;
+                } else {
+                    // This is the FINAL fallback if the bot somehow failed to provide the parameters.
                     turnInfo.style.height = 'auto';
                     turnInfo.style.textAlign = 'left';
                     turnInfo.innerHTML = `
