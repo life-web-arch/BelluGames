@@ -1,3 +1,17 @@
+
+    <!-- nano tunnel.js (to open and edit the tunnel script in termux,that gives us the public url for the bellu games python script running locally in termux android);
+
+node run-tunnel.js (to run that tunnel script that gives the public url for communication between the frontend html and backend python);
+
+curl https://loca.lt/mytunnelpassword (run this command directly in termux,to get the password to enter inside the public url gotten_open that public url in browser first)
+
+On entering the pass,404 not found means its working
+
+On changing the IP address e.g. aeroplame mode off/on or power off etc,that same public url wont work anymore,will have to re run that tunnel script script and get a new url,and update the same (url)in the frontend html too for succesful communication 
+
+Evert 7 days,that password enter prompt might appear again,so handle accordingly-->
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -121,10 +135,29 @@
             height: 40px;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin {
+                @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* --- ADD THIS ENTIRE NEW BLOCK --- */
+        #selection-tooltip {
+            display: none; /* Hidden by default */
+            position: absolute; /* Positioned relative to the game-container */
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            font-weight: 500;
+            z-index: 20; /* Ensures it's on top of the canvas */
+            pointer-events: none; /* Prevents the tooltip itself from blocking clicks */
+            /* This transform centers the tooltip horizontally and places its bottom edge just above the target point */
+            transform: translate(-50%, -110%);
+            transition: opacity 0.1s ease-in-out;
+            white-space: nowrap; /* Prevents text from wrapping */
+        }
+        /* --- END OF NEW BLOCK --- */
     </style>
 </head>
 <body>
@@ -137,6 +170,7 @@
             <div id="p2-score" class="player-score player2">P2: 0</div>
         </div>
         <canvas id="game-canvas"></canvas>
+        <div id="selection-tooltip"></div> <!-- ADD THIS LINE -->
         <div id="turn-info">Loading game...</div>
     </div>
 
@@ -144,12 +178,15 @@
         // ===================================================================
         // 1. INITIALIZATION & SETUP
         // ===================================================================
+        const p2ScoreEl = document.getElementById('p2-score');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const tooltip = document.getElementById('selection-tooltip'); // ADD THIS LINE
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand(); // Make the app full screen
 
         // IMPORTANT: Replace this with your actual tunnel URL
-        const API_BASE_URL = "https://twenty-monkeys-fold.loca.lt"; 
+        const API_BASE_URL = "https://proud-planes-lick.loca.lt"; 
 
         const urlParams = new URLSearchParams(window.location.search);
         const roomCode = urlParams.get('room_code');
@@ -279,7 +316,7 @@
             // ... (this existing function remains unchanged)
         }
 
-        // --- ADD THIS ENTIRE NEW FUNCTION ---
+
         function drawPointer() {
             // Only draw the pointer if its position is being tracked (i.e., a finger is on the screen)
             if (!pointerPosition) {
@@ -307,7 +344,24 @@
             ctx.lineTo(pointerPosition.x, pointerPosition.y + POINTER_RADIUS);
             ctx.stroke();
         }
+                // --- ADD THIS ENTIRE NEW FUNCTION ---
+        function updateTooltip(line, position) {
+            // Only show the tooltip if there is a valid line AND a position for the pointer
+            if (line && position) {
+                // The position comes from the pointer's coordinates relative to the canvas.
+                // We use these coordinates to set the 'left' and 'top' style properties.
+                tooltip.style.left = `${position.x}px`;
+                tooltip.style.top = `${position.y}px`; // The CSS transform will handle the vertical offset
+                
+                tooltip.textContent = "Confirm move?"; // Set the text content
+                tooltip.style.display = 'block'; // Make it visible
+            } else {
+                // If there's no line or no position, hide the tooltip.
+                tooltip.style.display = 'none';
+            }
+        }
         // --- END OF NEW FUNCTION ---
+
 
         function redrawCanvas(hoverLine = null) {
             if (!gameState.lines) return;
@@ -473,9 +527,12 @@
                 // --- THIS IS THE NEW, FULLY REPLACED EVENT LISTENER BLOCK FOR PRECISION AIMING ---
         
         // This variable must be declared once, before all the listeners.
+                // --- REPLACE THE ENTIRE EVENT LISTENER BLOCK WITH THIS ---
+        
+        // This variable must be declared once, before all the listeners.
         let lastHoverLine = null;
 
-        // Handler for Mouse Clicks (Desktop) - No change needed here.
+        // Handler for Mouse Clicks (Desktop) - No change in logic.
         canvas.addEventListener('click', (e) => {
             if (gameState.status !== 'in_progress' || gameState.current_turn !== userId) {
                 tg.HapticFeedback.notificationOccurred('error');
@@ -491,12 +548,16 @@
             }
         });
 
-        // Handler for Mouse Movement (Desktop Hover) - No change needed here.
+        // Handler for Mouse Movement (Desktop Hover) - MODIFIED
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             const hoverLine = getLineFromClick(x, y);
+
+            // Update tooltip based on mouse position
+            updateTooltip(hoverLine, {x, y});
+
             if(JSON.stringify(hoverLine) !== JSON.stringify(lastHoverLine)) {
                  lastHoverLine = hoverLine;
                  redrawCanvas(hoverLine);
@@ -504,10 +565,11 @@
         });
         canvas.addEventListener('mouseleave', () => {
              lastHoverLine = null;
+             updateTooltip(null, null); // Hide tooltip when mouse leaves
              redrawCanvas(null);
         });
         
-        // Handler for when a finger first touches the screen
+        // Handler for when a finger first touches the screen - MODIFIED
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault(); 
             if (gameState.status !== 'in_progress' || gameState.current_turn !== userId) { return; }
@@ -517,17 +579,17 @@
             const fingerX = touch.clientX - rect.left;
             const fingerY = touch.clientY - rect.top;
 
-            // Activate the pointer and set its initial position with the offset
             pointerPosition = { x: fingerX, y: fingerY - POINTER_OFFSET_Y };
-            
-            // Find the line that is under the new pointer's position
             const hoverLine = getLineFromClick(pointerPosition.x, pointerPosition.y);
-            lastHoverLine = hoverLine;
-            redrawCanvas(hoverLine); // Redraw to show both pointer and highlighted line
+            
+            // Update the tooltip and pass the POINTER'S position (not the finger's)
+            updateTooltip(hoverLine, pointerPosition);
 
+            lastHoverLine = hoverLine;
+            redrawCanvas(hoverLine);
         }, { passive: false });
 
-        // Handler for when a finger drags across the screen
+        // Handler for when a finger drags across the screen - MODIFIED
         canvas.addEventListener('touchmove', (e) => {
             e.preventDefault(); 
             if (gameState.status !== 'in_progress' || gameState.current_turn !== userId) { return; }
@@ -537,42 +599,43 @@
             const fingerX = touch.clientX - rect.left;
             const fingerY = touch.clientY - rect.top;
 
-            // Continuously update the pointer's position based on the finger's movement
             pointerPosition = { x: fingerX, y: fingerY - POINTER_OFFSET_Y };
-            
-            // Find the line currently under the moving pointer
             const hoverLine = getLineFromClick(pointerPosition.x, pointerPosition.y);
             
-            // Update the state and redraw the canvas to show the live movement of the pointer and hover effect
+            // Continuously update the tooltip based on the POINTER'S new position
+            updateTooltip(hoverLine, pointerPosition);
+            
             lastHoverLine = hoverLine;
             redrawCanvas(hoverLine);
         }, { passive: false });
 
-        // Handler for when a finger is lifted from the screen (MAKES THE MOVE)
+        // Handler for when a finger is lifted from the screen - MODIFIED
         canvas.addEventListener('touchend', (e) => {
             e.preventDefault();
 
-            // Deactivate and hide the pointer immediately
+            // Hide the tooltip immediately
+            updateTooltip(null, null);
             pointerPosition = null;
 
-            // If the finger was lifted while hovering over a valid line, play that move
             if (lastHoverLine) {
                 tg.HapticFeedback.impactOccurred('light');
                 makeMove(lastHoverLine);
             }
             
-            // Clean up the hover state and redraw one last time to remove the hover line
             lastHoverLine = null;
             redrawCanvas(null);
         });
 
-        // Handler for when a touch is interrupted (e.g., by a phone call)
+        // Handler for when a touch is interrupted - MODIFIED
         canvas.addEventListener('touchcancel', () => {
-            // Also deactivate the pointer and clean up the state
+            // Also hide the tooltip and clean up the state
+            updateTooltip(null, null);
             pointerPosition = null;
             lastHoverLine = null;
             redrawCanvas(null);
         });
+
+        // --- END OF THE REPLACED BLOCK ---
 
         // --- END OF THE REPLACED BLOCK ---
 
