@@ -22,6 +22,7 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <style>
+    
         /* CSS Variables for easy theming and integration with Telegram */
         :root {
             --tg-bg-color: var(--tg-theme-bg-color, #1a1a1a);
@@ -53,6 +54,29 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
             overflow: hidden;
             -webkit-user-select: none; /* Disable text selection */
             user-select: none;
+        }
+        
+        .password-container {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #333;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .password-display {
+            font-family: monospace;
+            font-size: 1.2em;
+            color: #76ff03; /* Lime green for visibility */
+            word-break: break-all;
+            margin-bottom: 10px;
+        }
+        .copy-btn {
+             background-color: var(--tg-button-color);
+             color: var(--tg-button-text-color);
+             border: none;
+             padding: 8px 12px;
+             border-radius: 6px;
+             cursor: pointer;
         }
 
         #game-container {
@@ -162,15 +186,29 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
         tg.ready();
         tg.expand(); // Make the app full screen
 
-        // IMPORTANT: Replace this with your actual tunnel URL
-        const API_BASE_URL = "https://proud-planes-lick.loca.lt"; 
-
+        // --- START OF REPLACEMENT BLOCK ---
         const urlParams = new URLSearchParams(window.location.search);
+        const dynamicTunnelUrl = urlParams.get('tunnel_url');
+
+        // Use the dynamically provided URL, with a fallback for local testing.
+        let API_BASE_URL = "https://your-old-url.loca.lt"; // Fallback URL
+
+        if (dynamicTunnelUrl) {
+            API_BASE_URL = dynamicTunnelUrl;
+        } else {
+            console.error("CRITICAL: The 'tunnel_url' parameter is missing from the Mini App URL!");
+            // Display an initial error if the bot fails to provide the URL
+            const turnInfo = document.getElementById('turn-info');
+            turnInfo.textContent = "Error: App launched with an invalid URL.";
+        }
+
         const roomCode = urlParams.get('room_code');
         const userId = parseInt(urlParams.get('user_id'), 10);
         const token = urlParams.get('token');
+        // --- END OF REPLACEMENT BLOCK ---
 
         const canvas = document.getElementById('game-canvas');
+        // ... (rest of the script)
         const ctx = canvas.getContext('2d');
         const statusBar = document.getElementById('status-bar');
         const turnInfo = document.getElementById('turn-info');
@@ -377,14 +415,70 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
                     throw new Error(`Server error: ${response.status}`);
                 }
                 const newState = await response.json();
+
+                // If we successfully connect, ensure the error message is cleared.
+                if (turnInfo.innerHTML.includes("Connection Error")) {
+                     turnInfo.style.height = '30px';
+                     turnInfo.style.textAlign = 'center';
+                     // The UI will be updated by the logic below.
+                }
+
                 if (JSON.stringify(gameState) !== JSON.stringify(newState)) {
                     gameState = newState;
                     updateUI();
                     redrawCanvas();
                 }
             } catch (error) {
-                console.error("Failed to fetch game state:", error);
-                turnInfo.textContent = "Connection Error!";
+                console.error("Primary fetch failed:", error);
+                
+                // --- SMART ERROR HANDLING ---
+                // The primary fetch failed. Now, let's ask the bot for the correct URL and password.
+                try {
+                    const infoResponse = await fetch(`${API_BASE_URL}/get_tunnel_info`);
+                    if (!infoResponse.ok) throw new Error("Info endpoint failed");
+                    const tunnelInfo = await infoResponse.json();
+
+                    if (tunnelInfo.url && tunnelInfo.password) {
+                        turnInfo.style.height = 'auto'; // Allow container to grow
+                        turnInfo.style.textAlign = 'left'; // Align text left for readability
+                        turnInfo.innerHTML = `
+                            <div style="padding: 10px; border: 1px solid var(--player2-color); border-radius: 8px; background-color: rgba(244, 67, 54, 0.1);">
+                                <strong style="color: var(--player2-color);">Connection Error!</strong>
+                                <p style="font-size: 0.9em; margin: 8px 0;">The server is asking for a password. Please follow these steps:</p>
+                                <ol style="font-size: 0.9em; padding-left: 20px;">
+                                    <li>Click the button below to open the server page.</li>
+                                    <li>Copy the password provided below.</li>
+                                    <li>Paste it into the password field on that webpage.</li>
+                                </ol>
+                                <button
+                                    onclick="window.open('${tunnelInfo.url}', '_blank')"
+                                    style="background-color: var(--tg-button-color); color: var(--tg-button-text-color); border: none; padding: 10px 15px; border-radius: 8px; font-size: 1em; width: 100%; cursor: pointer;"
+                                >
+                                    Open Server Page to Enter Password
+                                </button>
+                                <div class="password-container">
+                                    <p style="font-size:0.9em; margin:0 0 8px 0;">Tunnel Password:</p>
+                                    <div class="password-display">${tunnelInfo.password}</div>
+                                    <button class="copy-btn" onclick="copyToClipboard('${tunnelInfo.password}', this)">Click to Copy</button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // This case handles if the bot provides info but no password.
+                        throw new Error("Tunnel info from bot is incomplete.");
+                    }
+                } catch (infoError) {
+                    // This is the final fallback if the bot itself is unreachable.
+                    console.error("Secondary fetch for tunnel info also failed:", infoError);
+                    turnInfo.style.height = 'auto';
+                    turnInfo.style.textAlign = 'left';
+                    turnInfo.innerHTML = `
+                        <div style="padding: 10px; border: 1px solid var(--player2-color); border-radius: 8px; background-color: rgba(244, 67, 54, 0.1);">
+                            <strong style="color: var(--player2-color);">Critical Connection Failure!</strong>
+                            <p style="font-size: 0.9em; margin: 8px 0;">The game server is completely unreachable. The developer needs to ensure the bot and tunnel script are running correctly on Termux.</p>
+                        </div>
+                    `;
+                }
             }
         }
 
@@ -599,6 +693,18 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
 
         function getCssVar(name) {
             return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+        function copyToClipboard(text, buttonElement) {
+            navigator.clipboard.writeText(text).then(() => {
+                buttonElement.textContent = 'Copied!';
+                tg.HapticFeedback.notificationOccurred('success');
+                setTimeout(() => {
+                    buttonElement.textContent = 'Click to Copy';
+                }, 2000);
+            }, (err) => {
+                console.error('Could not copy text: ', err);
+                buttonElement.textContent = 'Copy Failed';
+            });
         }
 
         // Start the game loop
