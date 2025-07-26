@@ -89,11 +89,11 @@
             height: 30px; /* Reserve space to prevent layout shift */
         }
         
-                #game-canvas {
+        #game-canvas {
             background-color: transparent;
             cursor: pointer;
             
-            /* --- NEW LINES FOR NATIVE FEEL --- */
+            /* --- CSS FOR NATIVE FEEL --- */
             touch-action: none;                 /* Prevents scrolling/zooming gestures on the canvas */
             -webkit-user-select: none;          /* Disable selection highlight on Safari/Chrome */
             -moz-user-select: none;             /* Disable selection highlight on Firefox */
@@ -148,15 +148,13 @@
         tg.ready();
         tg.expand(); // Make the app full screen
 
-        // IMPORTANT: Replace this with your actual tunnel URL from Pinggy/Serveo
+        // IMPORTANT: Replace this with your actual tunnel URL
         const API_BASE_URL = "https://spotty-llamas-rhyme.loca.lt"; 
 
-        // --- THIS IS THE CORRECTED, CLEANED UP BLOCK ---
         const urlParams = new URLSearchParams(window.location.search);
         const roomCode = urlParams.get('room_code');
         const userId = parseInt(urlParams.get('user_id'), 10);
         const token = urlParams.get('token');
-        // --- END OF CORRECTION ---
 
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
@@ -166,11 +164,8 @@
         const p2ScoreEl = document.getElementById('p2-score');
         const loadingOverlay = document.getElementById('loading-overlay');
 
-        // Game State Object (will be populated by the server)
         let gameState = {};
-
-        // Game Drawing Constants
-        const GRID_SIZE = 5; // e.g., 5x5 grid of boxes
+        const GRID_SIZE = 5;
         const DOT_RADIUS = 5;
         const LINE_WIDTH = 6;
         const CLICK_THRESHOLD = 15;
@@ -201,10 +196,8 @@
 
         function drawLines() {
             if (!gameState.lines) return;
-
             const player1Color = getCssVar('--player1-color');
             const player2Color = getCssVar('--player2-color');
-
             // Horizontal lines
             for (let r = 0; r <= GRID_SIZE; r++) {
                 for (let c = 0; c < GRID_SIZE; c++) {
@@ -239,35 +232,21 @@
         
         function drawBoxes() {
             if (!gameState.boxes) return;
-
             const p1BoxColor = getCssVar('--player1-box-color');
             const p2BoxColor = getCssVar('--player2-box-color');
-            
             ctx.font = `bold ${CELL_SIZE * 0.6}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-
             for (let r = 0; r < GRID_SIZE; r++) {
                 for (let c = 0; c < GRID_SIZE; c++) {
                     const boxOwner = gameState.boxes?.[r]?.[c];
                     if (boxOwner) {
                         const isP1 = boxOwner === gameState.player1.id;
                         ctx.fillStyle = isP1 ? p1BoxColor : p2BoxColor;
-                        ctx.fillRect(
-                            c * CELL_SIZE + CELL_SIZE/2, 
-                            r * CELL_SIZE + CELL_SIZE/2, 
-                            CELL_SIZE, 
-                            CELL_SIZE
-                        );
-                        
-                        // Draw player symbol in the box
+                        ctx.fillRect(c * CELL_SIZE + CELL_SIZE/2, r * CELL_SIZE + CELL_SIZE/2, CELL_SIZE, CELL_SIZE);
                         ctx.fillStyle = isP1 ? getCssVar('--player1-color') : getCssVar('--player2-color');
                         const symbol = isP1 ? gameState.player1.symbol : gameState.player2.symbol;
-                        ctx.fillText(
-                            symbol,
-                            c * CELL_SIZE + CELL_SIZE,
-                            r * CELL_SIZE + CELL_SIZE
-                        );
+                        ctx.fillText(symbol, c * CELL_SIZE + CELL_SIZE, r * CELL_SIZE + CELL_SIZE);
                     }
                 }
             }
@@ -275,7 +254,6 @@
         
         function drawHoverLine(line) {
             if (!line || gameState.status !== 'in_progress' || gameState.current_turn !== userId) return;
-
             ctx.strokeStyle = getCssVar('--hover-line-color');
             ctx.lineWidth = LINE_WIDTH;
             ctx.lineCap = 'round';
@@ -291,7 +269,7 @@
         }
 
         function redrawCanvas(hoverLine = null) {
-            if (!gameState.lines) return; // Don't draw if state isn't loaded
+            if (!gameState.lines) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBoxes();
             drawLines();
@@ -310,14 +288,12 @@
             }
             loadingOverlay.style.display = 'none';
 
-            // Update scores and names
             p1ScoreEl.textContent = `${gameState.player1.symbol}: ${gameState.scores[gameState.player1.id]}`;
             p2ScoreEl.textContent = `${gameState.player2.symbol}: ${gameState.scores[gameState.player2.id]}`;
             
             p1ScoreEl.classList.toggle('active', gameState.current_turn === gameState.player1.id);
             p2ScoreEl.classList.toggle('active', gameState.current_turn === gameState.player2.id);
 
-            // Update status message
             if (gameState.status === 'finished') {
                 if (gameState.winner_id === null) {
                     turnInfo.textContent = "It's a draw!";
@@ -325,7 +301,7 @@
                     const winnerName = gameState.winner_id === userId ? "You win!" : "You lose!";
                     turnInfo.textContent = `Game Over! ${winnerName}`;
                 }
-                 tg.close(); // Close the mini app on game over
+                 tg.close();
             } else if (gameState.current_turn === userId) {
                 turnInfo.textContent = "Your Turn";
             } else {
@@ -336,14 +312,11 @@
         
         async function fetchGameState() {
             try {
-                // --- THIS IS THE CORRECTED, FULLY AUTHENTICATED REQUEST ---
                 const response = await fetch(`${API_BASE_URL}/get_state?room_code=${roomCode}&user_id=${userId}&token=${token}`);
-
                 if (!response.ok) {
                     throw new Error(`Server error: ${response.status}`);
                 }
                 const newState = await response.json();
-
                 if (JSON.stringify(gameState) !== JSON.stringify(newState)) {
                     gameState = newState;
                     updateUI();
@@ -356,7 +329,6 @@
         }
 
         async function makeMove(line) {
-            // Optimistic update for instant feedback
             if (!gameState.lines.h[line.row]) gameState.lines.h[line.row] = {};
             if (!gameState.lines.v[line.row]) gameState.lines.v[line.row] = {};
             if(line.type === 'h') gameState.lines.h[line.row][line.col] = userId;
@@ -370,15 +342,13 @@
                     body: JSON.stringify({
                         room_code: roomCode,
                         user_id: userId,
-                        token: token, // Also include token when making a move
+                        token: token,
                         move: line
                     })
                 });
-                // After sending, the polling will fetch the authoritative state
             } catch (error) {
                 console.error("Failed to send move:", error);
                 turnInfo.textContent = "Failed to send move!";
-                 // Revert optimistic update on failure
                  fetchGameState();
             }
         }
@@ -390,10 +360,8 @@
         function getLineFromClick(x, y) {
             const col = Math.floor(x / CELL_SIZE);
             const row = Math.floor(y / CELL_SIZE);
-            
             const offsetX = x % CELL_SIZE;
             const offsetY = y % CELL_SIZE;
-
             const isNearHorizontal = offsetY < CLICK_THRESHOLD || offsetY > CELL_SIZE - CLICK_THRESHOLD;
             const isNearVertical = offsetX < CLICK_THRESHOLD || offsetX > CELL_SIZE - CLICK_THRESHOLD;
 
@@ -415,6 +383,12 @@
             return null;
         }
 
+        // --- THIS IS THE CORRECTED, FULL EVENT LISTENER BLOCK ---
+        
+        // This variable must be declared once, before all the listeners.
+        let lastHoverLine = null;
+
+        // Handler for Mouse Clicks (Desktop)
         canvas.addEventListener('click', (e) => {
             if (gameState.status !== 'in_progress' || gameState.current_turn !== userId) {
                 tg.HapticFeedback.notificationOccurred('error');
@@ -423,22 +397,19 @@
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-
             const line = getLineFromClick(x, y);
-            
             if (line) {
                 tg.HapticFeedback.impactOccurred('light');
                 makeMove(line);
             }
         });
-        
-        let lastHoverLine = null;
+
+        // Handler for Mouse Movement (Desktop Hover)
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             const hoverLine = getLineFromClick(x, y);
-
             if(JSON.stringify(hoverLine) !== JSON.stringify(lastHoverLine)) {
                  lastHoverLine = hoverLine;
                  redrawCanvas(hoverLine);
@@ -449,47 +420,51 @@
              redrawCanvas(null);
         });
         
-                // ===================================================================
-        // 4. USER INPUT & EVENT LISTENERS
-        // ===================================================================
-
-        canvas.addEventListener('touchmove', (e) => {
-            // Prevent the page from scrolling while touching the canvas
+        // Handler for when a finger first touches the screen
+        canvas.addEventListener('touchstart', (e) => {
             e.preventDefault(); 
-            
+            if (gameState.status !== 'in_progress' || gameState.current_turn !== userId) { return; }
             const rect = canvas.getBoundingClientRect();
-            // Use the first touch point
             const touch = e.touches[0]; 
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
-            
             const hoverLine = getLineFromClick(x, y);
+            lastHoverLine = hoverLine;
+            redrawCanvas(hoverLine);
+        }, { passive: false });
 
-            // Redraw the canvas to show the hover line under the user's finger
+        // Handler for when a finger drags across the screen
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); 
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0]; 
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            const hoverLine = getLineFromClick(x, y);
             if(JSON.stringify(hoverLine) !== JSON.stringify(lastHoverLine)) {
                  lastHoverLine = hoverLine;
                  redrawCanvas(hoverLine);
             }
-        }, { passive: false }); // { passive: false } is needed for preventDefault() to work
+        }, { passive: false });
 
-        canvas.addEventListener('touchend', () => {
-            // When the user lifts their finger, clear the hover line
-             lastHoverLine = null;
-             redrawCanvas(null);
+        // Handler for when a finger is lifted from the screen (MAKES THE MOVE)
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (lastHoverLine) {
+                tg.HapticFeedback.impactOccurred('light');
+                makeMove(lastHoverLine);
+            }
+            lastHoverLine = null;
+            redrawCanvas(null);
         });
 
+        // Handler for when a touch is interrupted (e.g., by a phone call)
         canvas.addEventListener('touchcancel', () => {
-            // Also clear the hover line if the touch is interrupted
              lastHoverLine = null;
              redrawCanvas(null);
         });
 
-        // --- END OF NEW LISTENERS ---
-
-
-        // ===================================================================
-        // 5. UTILITY & STARTUP
-        // ===================================================================
+        // --- END OF CORRECTED BLOCK ---
 
 
         // ===================================================================
