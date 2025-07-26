@@ -89,9 +89,11 @@
             height: 30px; /* Reserve space to prevent layout shift */
         }
         
-        #game-canvas {
+                #game-canvas {
             background-color: transparent;
             cursor: pointer;
+            
+            /* --- NEW LINES FOR NATIVE FEEL --- */
             touch-action: none;                 /* Prevents scrolling/zooming gestures on the canvas */
             -webkit-user-select: none;          /* Disable selection highlight on Safari/Chrome */
             -moz-user-select: none;             /* Disable selection highlight on Firefox */
@@ -144,14 +146,17 @@
         // ===================================================================
         const tg = window.Telegram.WebApp;
         tg.ready();
-        tg.expand();
+        tg.expand(); // Make the app full screen
 
-        const API_BASE_URL = "https://your-tunnel-url.loca.lt"; // <-- IMPORTANT: Make sure this is your current tunnel URL!
+        // IMPORTANT: Replace this with your actual tunnel URL from Pinggy/Serveo
+        const API_BASE_URL = "https://spotty-llamas-rhyme.loca.lt"; 
 
+        // --- THIS IS THE CORRECTED, CLEANED UP BLOCK ---
         const urlParams = new URLSearchParams(window.location.search);
         const roomCode = urlParams.get('room_code');
         const userId = parseInt(urlParams.get('user_id'), 10);
         const token = urlParams.get('token');
+        // --- END OF CORRECTION ---
 
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
@@ -161,14 +166,18 @@
         const p2ScoreEl = document.getElementById('p2-score');
         const loadingOverlay = document.getElementById('loading-overlay');
 
+        // Game State Object (will be populated by the server)
         let gameState = {};
-        const GRID_SIZE = 5;
+
+        // Game Drawing Constants
+        const GRID_SIZE = 5; // e.g., 5x5 grid of boxes
         const DOT_RADIUS = 5;
         const LINE_WIDTH = 6;
+        const CLICK_THRESHOLD = 15;
         let CELL_SIZE;
 
         // ===================================================================
-        // 2. CANVAS DRAWING LOGIC (Unchanged)
+        // 2. CANVAS DRAWING LOGIC
         // ===================================================================
 
         function resizeCanvas() {
@@ -192,16 +201,18 @@
 
         function drawLines() {
             if (!gameState.lines) return;
+
             const player1Color = getCssVar('--player1-color');
             const player2Color = getCssVar('--player2-color');
-            ctx.lineWidth = LINE_WIDTH;
-            ctx.lineCap = 'round';
 
+            // Horizontal lines
             for (let r = 0; r <= GRID_SIZE; r++) {
                 for (let c = 0; c < GRID_SIZE; c++) {
                     const lineOwner = gameState.lines.h?.[r]?.[c];
                     if (lineOwner) {
                         ctx.strokeStyle = lineOwner === gameState.player1.id ? player1Color : player2Color;
+                        ctx.lineWidth = LINE_WIDTH;
+                        ctx.lineCap = 'round';
                         ctx.beginPath();
                         ctx.moveTo(c * CELL_SIZE + CELL_SIZE/2, r * CELL_SIZE + CELL_SIZE/2);
                         ctx.lineTo((c + 1) * CELL_SIZE + CELL_SIZE/2, r * CELL_SIZE + CELL_SIZE/2);
@@ -209,11 +220,14 @@
                     }
                 }
             }
+            // Vertical lines
             for (let r = 0; r < GRID_SIZE; r++) {
                 for (let c = 0; c <= GRID_SIZE; c++) {
                     const lineOwner = gameState.lines.v?.[r]?.[c];
                     if (lineOwner) {
                         ctx.strokeStyle = lineOwner === gameState.player1.id ? player1Color : player2Color;
+                        ctx.lineWidth = LINE_WIDTH;
+                        ctx.lineCap = 'round';
                         ctx.beginPath();
                         ctx.moveTo(c * CELL_SIZE + CELL_SIZE/2, r * CELL_SIZE + CELL_SIZE/2);
                         ctx.lineTo(c * CELL_SIZE + CELL_SIZE/2, (r + 1) * CELL_SIZE + CELL_SIZE/2);
@@ -225,8 +239,10 @@
         
         function drawBoxes() {
             if (!gameState.boxes) return;
+
             const p1BoxColor = getCssVar('--player1-box-color');
             const p2BoxColor = getCssVar('--player2-box-color');
+            
             ctx.font = `bold ${CELL_SIZE * 0.6}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -237,11 +253,21 @@
                     if (boxOwner) {
                         const isP1 = boxOwner === gameState.player1.id;
                         ctx.fillStyle = isP1 ? p1BoxColor : p2BoxColor;
-                        ctx.fillRect(c * CELL_SIZE + CELL_SIZE/2, r * CELL_SIZE + CELL_SIZE/2, CELL_SIZE, CELL_SIZE);
+                        ctx.fillRect(
+                            c * CELL_SIZE + CELL_SIZE/2, 
+                            r * CELL_SIZE + CELL_SIZE/2, 
+                            CELL_SIZE, 
+                            CELL_SIZE
+                        );
                         
+                        // Draw player symbol in the box
                         ctx.fillStyle = isP1 ? getCssVar('--player1-color') : getCssVar('--player2-color');
                         const symbol = isP1 ? gameState.player1.symbol : gameState.player2.symbol;
-                        ctx.fillText(symbol, c * CELL_SIZE + CELL_SIZE, r * CELL_SIZE + CELL_SIZE);
+                        ctx.fillText(
+                            symbol,
+                            c * CELL_SIZE + CELL_SIZE,
+                            r * CELL_SIZE + CELL_SIZE
+                        );
                     }
                 }
             }
@@ -265,7 +291,7 @@
         }
 
         function redrawCanvas(hoverLine = null) {
-            if (!gameState.lines) return;
+            if (!gameState.lines) return; // Don't draw if state isn't loaded
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBoxes();
             drawLines();
@@ -274,7 +300,7 @@
         }
 
         // ===================================================================
-        // 3. GAME STATE & SERVER COMMUNICATION (Unchanged)
+        // 3. GAME STATE & SERVER COMMUNICATION
         // ===================================================================
 
         function updateUI() {
@@ -284,12 +310,14 @@
             }
             loadingOverlay.style.display = 'none';
 
+            // Update scores and names
             p1ScoreEl.textContent = `${gameState.player1.symbol}: ${gameState.scores[gameState.player1.id]}`;
             p2ScoreEl.textContent = `${gameState.player2.symbol}: ${gameState.scores[gameState.player2.id]}`;
             
             p1ScoreEl.classList.toggle('active', gameState.current_turn === gameState.player1.id);
             p2ScoreEl.classList.toggle('active', gameState.current_turn === gameState.player2.id);
 
+            // Update status message
             if (gameState.status === 'finished') {
                 if (gameState.winner_id === null) {
                     turnInfo.textContent = "It's a draw!";
@@ -297,7 +325,7 @@
                     const winnerName = gameState.winner_id === userId ? "You win!" : "You lose!";
                     turnInfo.textContent = `Game Over! ${winnerName}`;
                 }
-                 tg.close();
+                 tg.close(); // Close the mini app on game over
             } else if (gameState.current_turn === userId) {
                 turnInfo.textContent = "Your Turn";
             } else {
@@ -308,11 +336,14 @@
         
         async function fetchGameState() {
             try {
+                // --- THIS IS THE CORRECTED, FULLY AUTHENTICATED REQUEST ---
                 const response = await fetch(`${API_BASE_URL}/get_state?room_code=${roomCode}&user_id=${userId}&token=${token}`);
+
                 if (!response.ok) {
                     throw new Error(`Server error: ${response.status}`);
                 }
                 const newState = await response.json();
+
                 if (JSON.stringify(gameState) !== JSON.stringify(newState)) {
                     gameState = newState;
                     updateUI();
@@ -325,8 +356,9 @@
         }
 
         async function makeMove(line) {
-            if (!line) return;
             // Optimistic update for instant feedback
+            if (!gameState.lines.h[line.row]) gameState.lines.h[line.row] = {};
+            if (!gameState.lines.v[line.row]) gameState.lines.v[line.row] = {};
             if(line.type === 'h') gameState.lines.h[line.row][line.col] = userId;
             else gameState.lines.v[line.row][line.col] = userId;
             redrawCanvas();
@@ -336,104 +368,130 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        room_code: roomCode, user_id: userId, token: token, move: line
+                        room_code: roomCode,
+                        user_id: userId,
+                        token: token, // Also include token when making a move
+                        move: line
                     })
                 });
+                // After sending, the polling will fetch the authoritative state
             } catch (error) {
                 console.error("Failed to send move:", error);
                 turnInfo.textContent = "Failed to send move!";
+                 // Revert optimistic update on failure
                  fetchGameState();
             }
         }
 
         // ===================================================================
-        // 4. ADVANCED USER INPUT & EVENT LISTENERS (REWRITTEN)
+        // 4. USER INPUT & EVENT LISTENERS
         // ===================================================================
         
-        let lastHoverLine = null;
-
-        function getLineFromPointer(x, y) {
-            // Increased click threshold for better touch accuracy
-            const CLICK_THRESHOLD = CELL_SIZE * 0.35; 
-
-            // Find the closest grid intersection point
-            const c_grid = (x - CELL_SIZE/2) / CELL_SIZE;
-            const r_grid = (y - CELL_SIZE/2) / CELL_SIZE;
-            const c = Math.round(c_grid);
-            const r = Math.round(r_grid);
-
-            // Calculate distance from the pointer to the center of the potential line
-            const dx_h = x - (c_grid * CELL_SIZE + CELL_SIZE/2);
-            const dy_h = y - (r * CELL_SIZE + CELL_SIZE/2);
-            const dist_h = Math.abs(dy_h);
-
-            const dx_v = x - (c * CELL_SIZE + CELL_SIZE/2);
-            const dy_v = y - (r_grid * CELL_SIZE + CELL_SIZE/2);
-            const dist_v = Math.abs(dx_v);
+        function getLineFromClick(x, y) {
+            const col = Math.floor(x / CELL_SIZE);
+            const row = Math.floor(y / CELL_SIZE);
             
-            // Determine if horizontal or vertical line is closer and within the threshold
-            if (dist_h < dist_v && dist_h < CLICK_THRESHOLD) {
-                const targetCol = Math.floor(c_grid);
-                if (targetCol >= 0 && targetCol < GRID_SIZE && r >= 0 && r <= GRID_SIZE) {
-                     if (!gameState.lines.h?.[r]?.[targetCol]) {
-                        return { type: 'h', row: r, col: targetCol };
+            const offsetX = x % CELL_SIZE;
+            const offsetY = y % CELL_SIZE;
+
+            const isNearHorizontal = offsetY < CLICK_THRESHOLD || offsetY > CELL_SIZE - CLICK_THRESHOLD;
+            const isNearVertical = offsetX < CLICK_THRESHOLD || offsetX > CELL_SIZE - CLICK_THRESHOLD;
+
+            if (isNearHorizontal && !isNearVertical) {
+                const targetRow = Math.round(y / CELL_SIZE);
+                if (col < GRID_SIZE && targetRow <= GRID_SIZE) {
+                    if (!gameState.lines.h?.[targetRow]?.[col]) {
+                         return { type: 'h', row: targetRow, col: col };
                     }
                 }
-            } else if (dist_v < dist_h && dist_v < CLICK_THRESHOLD) {
-                const targetRow = Math.floor(r_grid);
-                if (targetRow >= 0 && targetRow < GRID_SIZE && c >= 0 && c <= GRID_SIZE) {
-                    if (!gameState.lines.v?.[targetRow]?.[c]) {
-                        return { type: 'v', row: targetRow, col: c };
+            } else if (isNearVertical && !isNearHorizontal) {
+                const targetCol = Math.round(x / CELL_SIZE);
+                if (row < GRID_SIZE && targetCol <= GRID_SIZE) {
+                    if (!gameState.lines.v?.[row]?.[targetCol]) {
+                        return { type: 'v', row: row, col: targetCol };
                     }
                 }
             }
             return null;
         }
 
-        function handlePointerMove(event) {
-            event.preventDefault();
-            const rect = canvas.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-
-            const hoverLine = getLineFromPointer(x, y);
-
-            if (JSON.stringify(hoverLine) !== JSON.stringify(lastHoverLine)) {
-                lastHoverLine = hoverLine;
-                redrawCanvas(hoverLine);
-            }
-        }
-        
-        function handlePointerUp(event) {
+        canvas.addEventListener('click', (e) => {
             if (gameState.status !== 'in_progress' || gameState.current_turn !== userId) {
                 tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
-            
-            // Get the line that was being hovered when the pointer was released
-            const lineToPlay = lastHoverLine; 
-            
-            if (lineToPlay) {
-                tg.HapticFeedback.impactOccurred('light');
-                makeMove(lineToPlay);
-            }
-            
-            // Clear the hover effect immediately after the tap/click is processed
-            lastHoverLine = null;
-            redrawCanvas(null);
-        }
-        
-        function handlePointerLeave() {
-            // Clear the hover line if the pointer leaves the canvas area
-            lastHoverLine = null;
-            redrawCanvas(null);
-        }
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
 
-        // Attach the new unified pointer event listeners
-        canvas.addEventListener('pointermove', handlePointerMove);
-        canvas.addEventListener('pointerup', handlePointerUp);
-        canvas.addEventListener('pointerleave', handlePointerLeave);
+            const line = getLineFromClick(x, y);
+            
+            if (line) {
+                tg.HapticFeedback.impactOccurred('light');
+                makeMove(line);
+            }
+        });
         
+        let lastHoverLine = null;
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const hoverLine = getLineFromClick(x, y);
+
+            if(JSON.stringify(hoverLine) !== JSON.stringify(lastHoverLine)) {
+                 lastHoverLine = hoverLine;
+                 redrawCanvas(hoverLine);
+            }
+        });
+        canvas.addEventListener('mouseleave', () => {
+             lastHoverLine = null;
+             redrawCanvas(null);
+        });
+        
+                // ===================================================================
+        // 4. USER INPUT & EVENT LISTENERS
+        // ===================================================================
+
+        canvas.addEventListener('touchmove', (e) => {
+            // Prevent the page from scrolling while touching the canvas
+            e.preventDefault(); 
+            
+            const rect = canvas.getBoundingClientRect();
+            // Use the first touch point
+            const touch = e.touches[0]; 
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            const hoverLine = getLineFromClick(x, y);
+
+            // Redraw the canvas to show the hover line under the user's finger
+            if(JSON.stringify(hoverLine) !== JSON.stringify(lastHoverLine)) {
+                 lastHoverLine = hoverLine;
+                 redrawCanvas(hoverLine);
+            }
+        }, { passive: false }); // { passive: false } is needed for preventDefault() to work
+
+        canvas.addEventListener('touchend', () => {
+            // When the user lifts their finger, clear the hover line
+             lastHoverLine = null;
+             redrawCanvas(null);
+        });
+
+        canvas.addEventListener('touchcancel', () => {
+            // Also clear the hover line if the touch is interrupted
+             lastHoverLine = null;
+             redrawCanvas(null);
+        });
+
+        // --- END OF NEW LISTENERS ---
+
+
+        // ===================================================================
+        // 5. UTILITY & STARTUP
+        // ===================================================================
+
+
         // ===================================================================
         // 5. UTILITY & STARTUP
         // ===================================================================
@@ -442,10 +500,11 @@
             return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
         }
 
+        // Start the game loop
         window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
-        fetchGameState();
-        setInterval(fetchGameState, 2000);
+        resizeCanvas(); // Initial call
+        fetchGameState(); // Initial fetch
+        setInterval(fetchGameState, 2000); // Poll every 2 seconds
 
     </script>
 </body>
