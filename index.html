@@ -427,6 +427,8 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
             } catch (error) {
                 console.error("Game state fetch failed:", error);
                 
+               loadingOverlay.style.display = 'none';
+                
                 // --- FINAL, SIMPLIFIED ERROR HANDLING ---
                 // If the fetch fails, we already have the URL and Password from the initial setup.
                 // We no longer need to make a second API call.
