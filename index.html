@@ -89,10 +89,18 @@
             height: 30px; /* Reserve space to prevent layout shift */
         }
         
-        #game-canvas {
+                #game-canvas {
             background-color: transparent;
-            touch-action: none; /* Prevents default touch behaviors like scrolling */
             cursor: pointer;
+            
+            /* --- NEW LINES FOR NATIVE FEEL --- */
+            touch-action: none;                 /* Prevents scrolling/zooming gestures on the canvas */
+            -webkit-user-select: none;          /* Disable selection highlight on Safari/Chrome */
+            -moz-user-select: none;             /* Disable selection highlight on Firefox */
+            -ms-user-select: none;              /* Disable selection highlight on IE/Edge */
+            user-select: none;                  /* Standard syntax for disabling selection */
+            -webkit-tap-highlight-color: transparent; /* Removes the blue/gray box that appears on tap */
+            -webkit-touch-callout: none;        /* Disables the menu that appears on long-press (e.g., 'Save Image') */
         }
 
         #loading-overlay {
@@ -440,6 +448,48 @@
              lastHoverLine = null;
              redrawCanvas(null);
         });
+        
+                // ===================================================================
+        // 4. USER INPUT & EVENT LISTENERS
+        // ===================================================================
+
+        canvas.addEventListener('touchmove', (e) => {
+            // Prevent the page from scrolling while touching the canvas
+            e.preventDefault(); 
+            
+            const rect = canvas.getBoundingClientRect();
+            // Use the first touch point
+            const touch = e.touches[0]; 
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            const hoverLine = getLineFromClick(x, y);
+
+            // Redraw the canvas to show the hover line under the user's finger
+            if(JSON.stringify(hoverLine) !== JSON.stringify(lastHoverLine)) {
+                 lastHoverLine = hoverLine;
+                 redrawCanvas(hoverLine);
+            }
+        }, { passive: false }); // { passive: false } is needed for preventDefault() to work
+
+        canvas.addEventListener('touchend', () => {
+            // When the user lifts their finger, clear the hover line
+             lastHoverLine = null;
+             redrawCanvas(null);
+        });
+
+        canvas.addEventListener('touchcancel', () => {
+            // Also clear the hover line if the touch is interrupted
+             lastHoverLine = null;
+             redrawCanvas(null);
+        });
+
+        // --- END OF NEW LISTENERS ---
+
+
+        // ===================================================================
+        // 5. UTILITY & STARTUP
+        // ===================================================================
 
 
         // ===================================================================
