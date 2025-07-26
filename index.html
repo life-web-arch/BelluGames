@@ -473,9 +473,6 @@
                 // --- THIS IS THE NEW, FULLY REPLACED EVENT LISTENER BLOCK FOR PRECISION AIMING ---
         
         // This variable must be declared once, before all the listeners.
-                // --- THIS IS THE FINAL, CORRECTED EVENT LISTENER BLOCK WITH VISUAL FEEDBACK ---
-        
-        // This variable must be declared once, before all the listeners.
         let lastHoverLine = null;
 
         // Handler for Mouse Clicks (Desktop) - No change needed here.
@@ -500,7 +497,6 @@
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             const hoverLine = getLineFromClick(x, y);
-            // Redraw only if the hovered line has changed to be more efficient
             if(JSON.stringify(hoverLine) !== JSON.stringify(lastHoverLine)) {
                  lastHoverLine = hoverLine;
                  redrawCanvas(hoverLine);
@@ -524,14 +520,10 @@
             // Activate the pointer and set its initial position with the offset
             pointerPosition = { x: fingerX, y: fingerY - POINTER_OFFSET_Y };
             
-            // --- VISUAL FEEDBACK LOGIC ---
             // Find the line that is under the new pointer's position
             const hoverLine = getLineFromClick(pointerPosition.x, pointerPosition.y);
-            // Update the global hover line variable
             lastHoverLine = hoverLine;
-            // Redraw the entire canvas to show both the pointer AND the highlighted preview line
-            redrawCanvas(hoverLine); 
-            // --- END OF VISUAL FEEDBACK LOGIC ---
+            redrawCanvas(hoverLine); // Redraw to show both pointer and highlighted line
 
         }, { passive: false });
 
@@ -548,17 +540,12 @@
             // Continuously update the pointer's position based on the finger's movement
             pointerPosition = { x: fingerX, y: fingerY - POINTER_OFFSET_Y };
             
-            // --- VISUAL FEEDBACK LOGIC ---
             // Find the line currently under the moving pointer
             const hoverLine = getLineFromClick(pointerPosition.x, pointerPosition.y);
             
-            // Only redraw if the target line has changed, which is more efficient
-            if(JSON.stringify(hoverLine) !== JSON.stringify(lastHoverLine)) {
-                 lastHoverLine = hoverLine;
-                 // Redraw the canvas to show the updated pointer position and the new preview line
-                 redrawCanvas(hoverLine);
-            }
-            // --- END OF VISUAL FEEDBACK LOGIC ---
+            // Update the state and redraw the canvas to show the live movement of the pointer and hover effect
+            lastHoverLine = hoverLine;
+            redrawCanvas(hoverLine);
         }, { passive: false });
 
         // Handler for when a finger is lifted from the screen (MAKES THE MOVE)
@@ -574,7 +561,7 @@
                 makeMove(lastHoverLine);
             }
             
-            // Clean up the hover state and redraw one last time to remove the preview line
+            // Clean up the hover state and redraw one last time to remove the hover line
             lastHoverLine = null;
             redrawCanvas(null);
         });
@@ -586,8 +573,6 @@
             lastHoverLine = null;
             redrawCanvas(null);
         });
-
-        // --- END OF THE REPLACED BLOCK ---
 
         // --- END OF THE REPLACED BLOCK ---
 
