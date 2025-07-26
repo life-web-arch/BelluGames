@@ -330,12 +330,16 @@
             }
             loadingOverlay.style.display = 'none';
 
-            p1ScoreEl.textContent = `${gameState.player1.symbol}: ${gameState.scores[gameState.player1.id]}`;
-            p2ScoreEl.textContent = `${gameState.player2.symbol}: ${gameState.scores[gameState.player2.id]}`;
+            // --- THIS SECTION IS MODIFIED FOR BETTER SYMBOL RENDERING ---
+            // Using innerHTML and a span can help browsers correctly render the emoji and text.
+            p1ScoreEl.innerHTML = `<span class="symbol">${gameState.player1.symbol}</span> : ${gameState.scores[gameState.player1.id]}`;
+            p2ScoreEl.innerHTML = `<span class="symbol">${gameState.player2.symbol}</span> : ${gameState.scores[gameState.player2.id]}`;
+            // --- END OF MODIFICATION ---
             
             p1ScoreEl.classList.toggle('active', gameState.current_turn === gameState.player1.id);
             p2ScoreEl.classList.toggle('active', gameState.current_turn === gameState.player2.id);
 
+            // Update status message
             if (gameState.status === 'finished') {
                 if (gameState.winner_id === null) {
                     turnInfo.textContent = "It's a draw!";
@@ -343,7 +347,7 @@
                     const winnerName = gameState.winner_id === userId ? "You win!" : "You lose!";
                     turnInfo.textContent = `Game Over! ${winnerName}`;
                 }
-                 tg.close();
+                 tg.close(); // Close the mini app on game over
             } else if (gameState.current_turn === userId) {
                 turnInfo.textContent = "Your Turn";
             } else {
@@ -400,28 +404,66 @@
         // ===================================================================
         
         function getLineFromClick(x, y) {
-            const col = Math.floor(x / CELL_SIZE);
-            const row = Math.floor(y / CELL_SIZE);
-            const offsetX = x % CELL_SIZE;
-            const offsetY = y % CELL_SIZE;
-            const isNearHorizontal = offsetY < CLICK_THRESHOLD || offsetY > CELL_SIZE - CLICK_THRESHOLD;
-            const isNearVertical = offsetX < CLICK_THRESHOLD || offsetX > CELL_SIZE - CLICK_THRESHOLD;
+            // This is the new, high-precision line detection logic.
+            // It finds the single closest valid line to the pointer's coordinates.
 
-            if (isNearHorizontal && !isNearVertical) {
-                const targetRow = Math.round(y / CELL_SIZE);
-                if (col < GRID_SIZE && targetRow <= GRID_SIZE) {
-                    if (!gameState.lines.h?.[targetRow]?.[col]) {
-                         return { type: 'h', row: targetRow, col: col };
+            let closestLine = null;
+            let minDistance = Infinity;
+
+            // Step 1: Check all possible horizontal lines
+            for (let r = 0; r <= GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    // First, check if this line has already been played. If so, skip it.
+                    if (gameState.lines.h?.[r]?.[c]) {
+                        continue;
                     }
-                }
-            } else if (isNearVertical && !isNearHorizontal) {
-                const targetCol = Math.round(x / CELL_SIZE);
-                if (row < GRID_SIZE && targetCol <= GRID_SIZE) {
-                    if (!gameState.lines.v?.[row]?.[targetCol]) {
-                        return { type: 'v', row: row, col: targetCol };
+
+                    // Calculate the coordinates of the center of this horizontal line segment
+                    const lineCenterX = (c * CELL_SIZE + CELL_SIZE / 2) + (CELL_SIZE / 2);
+                    const lineCenterY = r * CELL_SIZE + CELL_SIZE / 2;
+
+                    // Calculate the distance from the pointer to the center of the line
+                    const distance = Math.sqrt(Math.pow(x - lineCenterX, 2) + Math.pow(y - lineCenterY, 2));
+
+                    // If this line is closer than any we've found so far, it becomes the new best candidate
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestLine = { type: 'h', row: r, col: c };
                     }
                 }
             }
+
+            // Step 2: Check all possible vertical lines
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c <= GRID_SIZE; c++) {
+                    // Skip this line if it has already been played
+                    if (gameState.lines.v?.[r]?.[c]) {
+                        continue;
+                    }
+
+                    // Calculate the coordinates of the center of this vertical line segment
+                    const lineCenterX = c * CELL_SIZE + CELL_SIZE / 2;
+                    const lineCenterY = (r * CELL_SIZE + CELL_SIZE / 2) + (CELL_SIZE / 2);
+
+                    // Calculate the distance from the pointer to the center of the line
+                    const distance = Math.sqrt(Math.pow(x - lineCenterX, 2) + Math.pow(y - lineCenterY, 2));
+
+                    // If this line is closer than our best horizontal candidate, it becomes the new best candidate
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestLine = { type: 'v', row: r, col: c };
+                    }
+                }
+            }
+            
+            // Step 3: Return the single best candidate line we found.
+            // We add a final check to ensure the pointer is reasonably close to the line,
+            // preventing a line from being selected if the user's finger is far away in an empty area.
+            if (minDistance < CELL_SIZE * 0.8) {
+                 return closestLine;
+            }
+
+            // If no line is close enough, return null.
             return null;
         }
 
