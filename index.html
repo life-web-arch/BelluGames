@@ -405,7 +405,6 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
                 turnInfo.textContent = `Waiting for ${opponentName}...`;
             }
         }
-                // This is a new helper function to manage the error UI states.
         async function fetchGameState() {
             try {
                 const response = await fetch(`${API_BASE_URL}/get_state?room_code=${roomCode}&user_id=${userId}&token=${token}`);
@@ -428,6 +427,8 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
             } catch (error) {
                 console.error("Game state fetch failed:", error);
                 
+               loadingOverlay.style.display = 'none';
+                
                 // --- FINAL, SIMPLIFIED ERROR HANDLING ---
                 // If the fetch fails, we already have the URL and Password from the initial setup.
                 // We no longer need to make a second API call.
@@ -444,7 +445,7 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
                             <ol style="font-size: 0.9em; padding-left: 20px; margin: 0;">
                                 <li>Click the button below to open the server page.</li>
                                 <li>Copy the password provided below.</li>
-                                <li>Paste the password onto that new webpage and submit (It might take upto a minute for the password to show up here below,please wait :))</li>
+                                <li>Paste the password onto that new webpage and submit(It might take upto a minute for the password to show up,please wait :))</li>
                                 <li>Return to this chat; the game will load automatically.</li>
                             </ol>
                             <button
@@ -471,35 +472,6 @@ Evert 7 days,that password enter prompt might appear again,so handle accordingly
                         </div>
                     `;
                 }
-            }
-        }       `;
-            }
-        }
-
-        async function fetchGameState() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/get_state?room_code=${roomCode}&user_id=${userId}&token=${token}`);
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-                const newState = await response.json();
-
-                if (turnInfo.innerHTML.includes("Connection Issue")) {
-                     turnInfo.style.height = '30px';
-                     turnInfo.style.textAlign = 'center';
-                }
-
-                if (JSON.stringify(gameState) !== JSON.stringify(newState)) {
-                    gameState = newState;
-                    updateUI();
-                    redrawCanvas();
-                }
-            } catch (error) {
-                console.error("Initial game state fetch failed. Starting error handling...", error);
-                loadingOverlay.style.display = 'none'; // CRITICAL: Show the error message UI.
-                
-                // Instead of putting all the logic here, we call our new handler.
-                handleConnectionError();
             }
         }
 
